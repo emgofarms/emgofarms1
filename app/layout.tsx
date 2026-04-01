@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { GoogleAnalytics } from '@next/third-parties/google'
+
 // app/layout.tsx
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
@@ -32,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Main content */}
         <main className="grow mt-18">{children}</main>
+        <GoogleAnalytics gaId="G-NT4VS27W94" />
 
         {/* Footer is a client component */}
         <Footer />
