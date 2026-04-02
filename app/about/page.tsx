@@ -5,7 +5,8 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { FaWhatsapp } from "react-icons/fa"
 
-const WHATSAPP_URL = `https://wa.me/2348166727320?text=${encodeURIComponent(
+const WHATSAPP_NUMBER  = "2348107301956"
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
   "Hello EMGO Farms! I'd like to get in touch regarding your products and services."
 )}`
 

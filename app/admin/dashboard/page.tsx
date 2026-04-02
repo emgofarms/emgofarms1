@@ -1,7 +1,7 @@
 'use client'
 
 // app/admin/dashboard/page.tsx
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Users, Mail, Package, Settings,
   TrendingUp, Leaf, RefreshCw, LogOut, Bell, Search,
   ChevronRight, ArrowUpRight, MessageSquare, Eye, Plus,
-  BarChart3, Shield, Briefcase, Image as ImageIcon,
+  BarChart3, Shield, Briefcase, Image as ImageIcon, Clock,
 } from "lucide-react"
 
 interface Stats {
@@ -22,7 +22,7 @@ const NAV = [
   { label: "Dashboard",   icon: LayoutDashboard, href: "/admin/dashboard", active: true },
   { label: "Blog Posts",  icon: FileText,        href: "/admin/posts"                   },
   { label: "Contacts",    icon: Mail,            href: "/admin/contacts"                },
-  { label: "Subscribers", icon: Users, href: "/admin/subscribers"                       },
+  { label: "Subscribers", icon: Users,           href: "/admin/subscribers"             },
   { label: "Products",    icon: Package,         href: "/admin/products"                },
   { label: "Services",    icon: Briefcase,       href: "/admin/services"                },
   { label: "Gallery",     icon: ImageIcon,       href: "/admin/gallery"                 },
@@ -51,14 +51,71 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+// ── Auto-logout constants
+const IDLE_TIMEOUT_MS   = 20 * 60 * 1000  // 20 min total idle time
+const WARNING_BEFORE_MS =  2 * 60 * 1000  // warn 2 min before logout
+const ACTIVITY_EVENTS   = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"]
+
 export default function DashboardPage() {
-  const router  = useRouter()
-  const [stats,   setStats]   = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-  const [search,  setSearch]  = useState("")
-  const [user,    setUser]    = useState<any>(null)
+  const router = useRouter()
+  const [stats,      setStats]      = useState<Stats | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+  const [search,     setSearch]     = useState("")
+  const [user,       setUser]       = useState<any>(null)
   const [signingOut, setSigningOut] = useState(false)
+
+  // idle-logout state
+  const [showWarning, setShowWarning] = useState(false)
+  const [countdown,   setCountdown]   = useState(120)
+  const idleTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countdownRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const clearAllTimers = () => {
+    if (idleTimerRef.current)    clearTimeout(idleTimerRef.current)
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
+    if (countdownRef.current)    clearInterval(countdownRef.current)
+  }
+
+  const handleSignOut = useCallback(async () => {
+    clearAllTimers()
+    setSigningOut(true)
+    await supabase.auth.signOut()
+    router.push("/admin/login")
+  }, [router])
+
+  const resetIdleTimer = useCallback(() => {
+    setShowWarning(false)
+    setCountdown(WARNING_BEFORE_MS / 1000)
+    clearAllTimers()
+
+    warningTimerRef.current = setTimeout(() => {
+      setShowWarning(true)
+      setCountdown(WARNING_BEFORE_MS / 1000)
+      countdownRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) { clearInterval(countdownRef.current!); return 0 }
+          return prev - 1
+        })
+      }, 1000)
+    }, IDLE_TIMEOUT_MS - WARNING_BEFORE_MS)
+
+    idleTimerRef.current = setTimeout(() => {
+      handleSignOut()
+    }, IDLE_TIMEOUT_MS)
+  }, [handleSignOut])
+
+  useEffect(() => {
+    if (!user) return
+    resetIdleTimer()
+    const onActivity = () => resetIdleTimer()
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, onActivity, { passive: true }))
+    return () => {
+      clearAllTimers()
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, onActivity))
+    }
+  }, [user, resetIdleTimer])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -83,21 +140,17 @@ export default function DashboardPage() {
     }
   }
 
-  const handleSignOut = async () => {
-    setSigningOut(true)
-    await supabase.auth.signOut()
-    router.push("/admin/login")
-  }
-
   const statValues = stats
     ? [stats.totalPosts, stats.totalContacts, stats.totalSubscribers, stats.totalProducts]
     : [0, 0, 0, 0]
+
+  const countdownDisplay = `${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, "0")}`
 
   if (!user && loading) return (
     <div className="flex items-center justify-center min-h-screen bg-green-950">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-green-300 text-sm font-semibold">Loading dashboard…</p>
+        <p className="text-green-300 text-sm font-semibold">Loading dashboard...</p>
       </div>
     </div>
   )
@@ -105,10 +158,50 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">
 
-      {/* ── SIDEBAR ── */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-green-900 text-white flex-shrink-0 shadow-2xl fixed top-0 left-0 h-screen z-40">
+      {/* AUTO-LOGOUT WARNING MODAL */}
+      {showWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="bg-amber-500 px-6 py-5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <Clock size={20} className="text-white" />
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Session Expiring Soon</p>
+                <p className="text-amber-100 text-xs mt-0.5">You have been inactive for a while</p>
+              </div>
+            </div>
+            <div className="px-6 py-6 text-center">
+              <div className="w-20 h-20 rounded-full border-4 border-amber-100 flex items-center justify-center mx-auto mb-4">
+                <span className="text-xl font-bold text-gray-800">{countdownDisplay}</span>
+              </div>
+              <p className="text-gray-700 text-sm font-semibold mb-1">
+                Auto-logout in {countdownDisplay}
+              </p>
+              <p className="text-gray-400 text-xs mb-6">
+                You will be signed out due to inactivity. Click below to stay logged in.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSignOut}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-xs font-semibold hover:bg-gray-50 transition"
+                >
+                  Sign Out Now
+                </button>
+                <button
+                  onClick={resetIdleTimer}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-green-800 hover:bg-green-900 text-white text-xs font-semibold transition shadow-sm"
+                >
+                  Stay Logged In
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Logo */}
+      {/* SIDEBAR */}
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-green-900 text-white flex-shrink-0 shadow-2xl fixed top-0 left-0 h-screen z-40">
         <div className="px-6 pt-8 pb-6 border-b border-green-800/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -119,14 +212,12 @@ export default function DashboardPage() {
               <p className="text-green-400 text-[10px] tracking-widest uppercase mt-0.5">Admin Panel</p>
             </div>
           </div>
-          {/* Admin badge */}
           <div className="mt-4 flex items-center gap-2 bg-green-800/50 rounded-xl px-3 py-2">
             <Shield size={12} className="text-orange-400 flex-shrink-0" />
             <span className="text-[10px] text-green-300 font-semibold tracking-wider uppercase">Secure Admin Access</span>
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest px-3 mb-3">Main Menu</p>
           {NAV.map(({ label, icon: Icon, href, active }) => (
@@ -146,9 +237,11 @@ export default function DashboardPage() {
           ))}
         </nav>
 
-        {/* User + Sign Out */}
         <div className="px-4 py-5 border-t border-green-800/60 space-y-3">
-          {/* User info */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-800/30 rounded-xl">
+            <Clock size={11} className="text-green-400 flex-shrink-0" />
+            <span className="text-[10px] text-green-400">Auto-logout after 20 min idle</span>
+          </div>
           <div className="flex items-center gap-3 bg-green-800/40 rounded-xl px-3 py-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md">
               {user?.email?.charAt(0)?.toUpperCase() ?? "A"}
@@ -158,8 +251,6 @@ export default function DashboardPage() {
               <p className="text-green-400 text-[10px] truncate">{user?.email ?? "admin"}</p>
             </div>
           </div>
-
-          {/* Sign out button */}
           <button
             onClick={handleSignOut}
             disabled={signingOut}
@@ -169,15 +260,13 @@ export default function DashboardPage() {
               ? <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-transparent rounded-full animate-spin" />
               : <LogOut size={13} />
             }
-            {signingOut ? "Signing out…" : "Sign Out"}
+            {signingOut ? "Signing out..." : "Sign Out"}
           </button>
         </div>
       </aside>
 
-      {/* ── MAIN — offset by sidebar width ── */}
+      {/* MAIN */}
       <main className="flex-1 md:ml-64 lg:ml-72 flex flex-col min-h-screen">
-
-        {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100 px-5 sm:px-8 py-4 flex items-center justify-between gap-4 shadow-sm">
           <div>
             <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">Dashboard</h1>
@@ -188,7 +277,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden sm:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 w-40 lg:w-52">
               <Search size={13} className="text-gray-400 flex-shrink-0" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
                 className="bg-transparent text-xs text-gray-700 outline-none w-full placeholder-gray-400" />
             </div>
             <button onClick={fetchStats} title="Refresh data"
@@ -201,32 +290,26 @@ export default function DashboardPage() {
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
               )}
             </button>
-            {/* Mobile sign out */}
             <button onClick={handleSignOut} disabled={signingOut}
               className="md:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold transition">
               <LogOut size={13} />
-              {signingOut ? "…" : "Out"}
+              {signingOut ? "..." : "Out"}
             </button>
           </div>
         </header>
 
-        {/* Page content */}
         <div className="flex-1 px-5 sm:px-8 py-8 space-y-6">
 
-          {/* Error */}
           {error && (
             <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-xl px-4 py-3 flex items-center gap-2">
-              <span className="font-bold">⚠</span> {error}
+              <span className="font-bold">Warning</span> {error}
             </div>
           )}
 
-          {/* Welcome + quick actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Welcome back, Emmanuel 👋
-              </h2>
-              <p className="text-gray-500 text-sm mt-0.5">Here's what's happening with EMGO Farms today.</p>
+              <h2 className="text-xl font-bold text-gray-900">Welcome back, Emmanuel</h2>
+              <p className="text-gray-500 text-sm mt-0.5">Here is what is happening with EMGO Farms today.</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Link href="/admin/posts"
@@ -244,11 +327,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {STAT_CARDS.map(({ bg, accent, icon: Icon, label }, i) => (
               <div key={label} className={`${bg} rounded-2xl p-5 text-white shadow-lg relative overflow-hidden`}>
-                {/* Decorative circles */}
                 <div className={`absolute -top-5 -right-5 w-20 h-20 rounded-full ${accent} opacity-50`} />
                 <div className={`absolute -bottom-4 -right-2 w-12 h-12 rounded-full ${accent} opacity-30`} />
                 <div className="relative">
@@ -264,16 +345,14 @@ export default function DashboardPage() {
                 <div className="relative mt-4 pt-3 border-t border-white/10 flex items-center gap-1 text-[10px] text-white/60">
                   <BarChart3 size={10} className="text-white/40" />
                   <span className="text-green-300 font-semibold">Live</span>
-                  <span>· Supabase</span>
+                  <span>- Supabase</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Recent contacts + posts */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-            {/* Recent Contacts */}
             <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
                 <div>
@@ -285,7 +364,7 @@ export default function DashboardPage() {
                     {stats?.totalContacts ?? 0} total
                   </span>
                   <Link href="/admin/contacts" className="text-xs text-gray-400 hover:text-green-700 transition font-medium">
-                    View all →
+                    View all
                   </Link>
                 </div>
               </div>
@@ -335,10 +414,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Right column */}
             <div className="lg:col-span-2 flex flex-col gap-5">
-
-              {/* Recent Posts */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1">
                 <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
                   <h2 className="text-sm font-bold text-gray-800">Recent Posts</h2>
@@ -379,7 +455,6 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Quick Actions */}
               <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-2xl p-5 text-white shadow-lg">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-green-400 mb-4">Quick Actions</p>
                 <div className="space-y-1.5">
@@ -397,20 +472,17 @@ export default function DashboardPage() {
                     </Link>
                   ))}
                 </div>
-
-                {/* Sign out in quick actions too */}
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <button onClick={handleSignOut} disabled={signingOut}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-300 hover:text-red-200 hover:bg-red-500/20 transition-all duration-200">
                     <LogOut size={14} className="flex-shrink-0" />
-                    {signingOut ? "Signing out…" : "Sign Out"}
+                    {signingOut ? "Signing out..." : "Sign Out"}
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* DB Status bar */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
@@ -418,7 +490,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-800">Database Status</p>
-                <p className="text-[10px] text-gray-400">Connected to Supabase · emgo-farms</p>
+                <p className="text-[10px] text-gray-400">Connected to Supabase - emgo-farms</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
