@@ -60,15 +60,15 @@ export const Navbar = () => {
             {/* LOGO */}
             <Link href="/" className="flex items-center flex-shrink-0">
               <Image
-                src="/image/logo02.png"
+                src="/image/Emgo.png"
                 alt="Emgo Farms Logo"
-                width={240}
-                height={100}
+                width={320}
+                height={140}
                 priority
                 className={`object-contain w-auto drop-shadow-md transition-all duration-300 ${
                   scrolled
-                    ? "h-9 sm:h-10 md:h-12"
-                    : "h-10 sm:h-12 md:h-14 lg:h-16"
+                    ? "h-12 sm:h-14 md:h-14"
+                    : "h-14 sm:h-16 md:h-20 lg:h-24"
                 }`}
               />
             </Link>
