@@ -86,7 +86,7 @@ const whyUsItems = [
 ]
 
 const stats = [
-  { target: 50000, label: "Target Oil Palm Trees",    suffix: "+" },
+  { target: 100000, label: "Target Oil Palm Trees",    suffix: "+" },
   { target: 5,     label: "Hectares Developed",       suffix: "+" },
   { target: 3,     label: "Integrated Agro Segments", suffix: "+" },
   { target: 100,   label: "Sustainability Commitment",suffix: "%" },
