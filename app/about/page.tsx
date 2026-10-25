@@ -67,7 +67,7 @@ export default function AboutPage() {
                 EMGO Farms and Integrated Services Limited was founded on a simple but powerful belief: Agriculture should not merely produce crops — it should create prosperity, ensure food security, empower communities, and operate sustainably for generations.
               </p>
               <p>
-                We began with 5 hectares of land, but our ambition stretches far beyond boundaries. Our goal is clear: cultivate over 50,000 high-yielding oil palm trees, establish a modern Crude Oil Palm (CPO) and palm kernel oil (PKO) refining plant, and develop a fully integrated agro value chain.
+                We began with 10 hectares of land, but our ambition stretches far beyond boundaries. Our goal is clear: cultivate over 100,000 high-yielding oil palm trees, establish a modern Crude Oil Palm (CPO) and palm kernel oil (PKO) refining plant, and develop a fully integrated agro value chain.
               </p>
               <p>
                 We are building an integrated agricultural ecosystem — including cassava cultivation, ginger and other cash crops, and sustainable animal husbandry — ensuring diversified income streams and circular agricultural practices.

@@ -118,7 +118,7 @@ export default function ServicesPage() {
           </motion.div>
           <div className="space-y-3 sm:space-y-4">
             <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.1 }} className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">
-              Founded in August 2020, EMGO Farms started with a small 4-acre farm in Ogun State and has expanded to 5 hectares in Uyo, Akwa Ibom, aiming to plant 50,000 oil palms by 2030. We are committed to sustainable farming, eco-friendly production, and community empowerment.
+              Founded in August 2020, EMGO Farms started with a small 4-acre farm in Ogun State and has expanded to 10 hectares in Uyo, Akwa Ibom, aiming to plant 100,000 oil palms by 2030. We are committed to sustainable farming, eco-friendly production, and community empowerment.
             </motion.p>
             <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.2 }} className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">
               Our integrated operations — from cultivation to refined oil production — ensure efficiency, traceability, and consistent quality. Using modern agronomic techniques, environmentally responsible practices, and cutting-edge processing technology, EMGO Farms delivers premium palm oil and kernel oil to local and international markets.

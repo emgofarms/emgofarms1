@@ -87,7 +87,7 @@ const whyUsItems = [
 
 const stats = [
   { target: 100000, label: "Target Oil Palm Trees",    suffix: "+" },
-  { target: 5,     label: "Hectares Developed",       suffix: "+" },
+  { target: 10,     label: "Hectares Developed",       suffix: "+" },
   { target: 3,     label: "Integrated Agro Segments", suffix: "+" },
   { target: 100,   label: "Sustainability Commitment",suffix: "%" },
 ]
@@ -98,6 +98,7 @@ const trustBadges = [
   "NEPC Affiliate",
   "Nigerian Environmental Society Member",
   "ISO-aligned Practices",
+  "RSPO Standard Practice"
 ]
 
 // ── Page component ────────────────────────────────────────────
@@ -163,8 +164,8 @@ export default function Home() {
                   capable of delivering sustainable prosperity, food security, and long-term economic value.
                 </p>
                 <p>
-                  EMGO Farms began with 5 hectares of land, but our ambition stretches far beyond
-                  boundaries — cultivating over 50,000 high-yielding oil palm trees, establishing a modern Oil Palm refining plant, and building a complete end-to-end agricultural value chain.
+                  EMGO Farms began with 10 hectares of land, but our ambition stretches far beyond
+                  boundaries — cultivating over 100,000 high-yielding oil palm trees, establishing a modern Oil Palm refining plant, and building a complete end-to-end agricultural value chain.
                 </p>
                 <p>
                   We are also expanding into cassava cultivation for industrial starch, ginger,
